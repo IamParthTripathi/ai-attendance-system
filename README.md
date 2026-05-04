@@ -367,11 +367,11 @@ You are free to use, modify, and distribute this project for personal or commerc
 
 ## Author
 
-Built by **[Your Name]**
+Built by **[Parth Tripathi]**
 
-- GitHub: [@your-username](https://github.com/your-username)
-- LinkedIn: [linkedin.com/in/your-profile](https://linkedin.com/in/your-profile)
-- Email: your@email.com
+- GitHub: [@IamParthTripathi](https://github.com/IamParthTripathi)
+- LinkedIn: [linkedin.com/in/iamparthtripathi](https://linkedin.com/in/iamparthtripathi)
+- Email: iamparthtripathi@gmail.com
 
 ---
 
