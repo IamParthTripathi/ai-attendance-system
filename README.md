@@ -26,7 +26,8 @@ No clickers. No paper. No roll calls.
 
 ### Live Demo
 
-> 🔗 **[your-username.github.io/ai-attendance-system](https://your-username.github.io/ai-attendance-system)** *(update this link after deployment)*
+> 🔗 **[IamParthTripathi.github.io/ai-attendance-system](https://IamParthTripathi.github.io/ai-attendance-system)**
+
 
 Demo credentials:
 | Role    | Email                  | Password    |
