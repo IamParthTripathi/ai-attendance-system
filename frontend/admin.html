@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — AttendAI</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="navbar">
+  <span class="logo">&#127891; AttendAI</span>
+  <div class="nav-links">
+    <a href="dashboard.html">Dashboard</a>
+    <a href="upload.html">Upload</a>
+    <a href="attendance.html">Reports</a>
+    <a href="admin.html" class="active">Admin</a>
+  </div>
+  <div class="nav-user">
+    <span id="nav-name"></span>
+    <span class="nav-badge">admin</span>
+    <button class="btn btn-outline btn-sm" onclick="doLogout()">Logout</button>
+  </div>
+</nav>
+
+<div class="container page-content">
+
+  <div class="section-header"><h2>Admin panel</h2></div>
+  <div id="alert-box"></div>
+
+  <!-- Tab bar -->
+  <div style="display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:0">
+    <button class="btn btn-outline" id="tab-teachers" onclick="showTab('teachers')"
+            style="border-radius:8px 8px 0 0;border-bottom:none">Teachers</button>
+    <button class="btn btn-outline" id="tab-classes"  onclick="showTab('classes')"
+            style="border-radius:8px 8px 0 0;border-bottom:none">Classes</button>
+    <button class="btn btn-outline" id="tab-students" onclick="showTab('students')"
+            style="border-radius:8px 8px 0 0;border-bottom:none">Students</button>
+  </div>
+
+  <!-- ── Teachers tab ──────────────────────────────────────── -->
+  <div id="panel-teachers">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
+      <div class="card">
+        <div class="card-title">Add teacher / admin</div>
+        <div class="form-group"><label class="form-label">Full name</label>
+          <input id="t-name" class="form-control" placeholder="Mr. Sharma"></div>
+        <div class="form-group"><label class="form-label">Email</label>
+          <input id="t-email" class="form-control" type="email" placeholder="sharma@school.com"></div>
+        <div class="form-group"><label class="form-label">Password</label>
+          <input id="t-password" class="form-control" type="password" placeholder="Min 6 chars"></div>
+        <div class="form-group"><label class="form-label">Role</label>
+          <select id="t-role" class="form-control">
+            <option value="teacher">Teacher</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="addTeacher()">Add user</button>
+      </div>
+      <div class="card">
+        <div class="card-title">All users</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th></tr></thead>
+            <tbody id="teachers-tbody"><tr class="loading-row"><td colspan="3"><div class="spinner"></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Classes tab ───────────────────────────────────────── -->
+  <div id="panel-classes" style="display:none">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
+      <div class="card">
+        <div class="card-title">Add class</div>
+        <div class="form-group"><label class="form-label">Class name</label>
+          <input id="c-name" class="form-control" placeholder="CS-A"></div>
+        <div class="form-group"><label class="form-label">Section (optional)</label>
+          <input id="c-section" class="form-control" placeholder="Section 1"></div>
+        <div class="form-group"><label class="form-label">Assign teacher</label>
+          <select id="c-teacher" class="form-control"><option value="">Loading…</option></select></div>
+        <button class="btn btn-primary" onclick="addClass()">Add class</button>
+      </div>
+      <div class="card">
+        <div class="card-title">All classes</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Section</th><th>Teacher</th><th>Students</th><th></th></tr></thead>
+            <tbody id="classes-tbody"><tr class="loading-row"><td colspan="5"><div class="spinner"></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Students tab ─────────────────────────────────────── -->
+  <div id="panel-students" style="display:none">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
+      <div class="card">
+        <div class="card-title">Add student</div>
+        <div class="form-group"><label class="form-label">Class</label>
+          <select id="s-class" class="form-control" onchange="loadStudents()"><option value="">Select class…</option></select></div>
+        <div class="form-group"><label class="form-label">Roll number</label>
+          <input id="s-roll" class="form-control" placeholder="CS001"></div>
+        <div class="form-group"><label class="form-label">Full name</label>
+          <input id="s-name" class="form-control" placeholder="Student name"></div>
+        <button class="btn btn-primary" onclick="addStudent()">Add student</button>
+        <p style="margin-top:12px;font-size:13px;color:var(--muted)">
+          After adding, place <strong>&lt;roll_number&gt;.jpg</strong> in <code>ai-service/student_photos/</code>
+          and run <code>python encode_students.py</code>.
+        </p>
+      </div>
+      <div class="card">
+        <div class="card-title">Students in selected class</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Roll</th><th>Name</th><th></th></tr></thead>
+            <tbody id="students-tbody">
+              <tr><td colspan="3" style="text-align:center;padding:20px;color:var(--muted)">Select a class</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/config.js"></script>
+<script>
+const user = requireLogin();
+if (user.role !== 'admin') {
+    showAlert('alert-box', 'Admin access required.');
+    setTimeout(() => window.location.href = 'dashboard.html', 1500);
+}
+document.getElementById('nav-name').textContent = user.name;
+
+// ── Tab switching ─────────────────────────────────────────────
+function showTab(name) {
+    ['teachers','classes','students'].forEach(t => {
+        document.getElementById('panel-' + t).style.display = t === name ? '' : 'none';
+        document.getElementById('tab-' + t).style.background =
+            t === name ? 'var(--primary-l)' : '';
+        document.getElementById('tab-' + t).style.color =
+            t === name ? 'var(--primary)' : '';
+    });
+    if (name === 'classes')  { loadTeachersIntoSelect(); loadClasses(); }
+    if (name === 'students') { loadClassesIntoSelect(); }
+}
+showTab('teachers');
+
+// ── Teachers ──────────────────────────────────────────────────
+async function loadTeachers() {
+    const res  = await fetch(`${API_BASE}/teachers.php`);
+    const data = await res.json();
+    const tbody = document.getElementById('teachers-tbody');
+    tbody.innerHTML = (data.teachers || []).map(t => `
+        <tr>
+          <td>${escapeHtml(t.name)}</td>
+          <td style="font-size:13px;color:var(--muted)">${escapeHtml(t.email)}</td>
+          <td><span class="badge ${t.role==='admin'?'badge-present':'badge-not-marked'}">${t.role}</span></td>
+        </tr>`).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--muted)">No users yet</td></tr>';
+}
+async function loadTeachersIntoSelect() {
+    const res  = await fetch(`${API_BASE}/teachers.php`);
+    const data = await res.json();
+    const sel  = document.getElementById('c-teacher');
+    sel.innerHTML = '<option value="">— Select teacher —</option>' +
+        (data.teachers || []).filter(t => t.role === 'teacher' || t.role === 'admin')
+            .map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+}
+async function addTeacher() {
+    const name     = document.getElementById('t-name').value.trim();
+    const email    = document.getElementById('t-email').value.trim();
+    const password = document.getElementById('t-password').value;
+    const role     = document.getElementById('t-role').value;
+    if (!name || !email || !password) return showAlert('alert-box', 'All fields are required.');
+    if (password.length < 6) return showAlert('alert-box', 'Password must be at least 6 characters.');
+    const res  = await fetch(`${API_BASE}/teachers.php`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password, role }),
+    });
+    const data = await res.json();
+    if (data.success) {
+        showAlert('alert-box', 'User added successfully.', 'success');
+        document.getElementById('t-name').value = '';
+        document.getElementById('t-email').value = '';
+        document.getElementById('t-password').value = '';
+        loadTeachers();
+    } else {
+        showAlert('alert-box', data.error || 'Failed to add user.');
+    }
+}
+
+// ── Classes ───────────────────────────────────────────────────
+async function loadClasses() {
+    const res   = await fetch(`${API_BASE}/classes.php`);
+    const data  = await res.json();
+    const tbody = document.getElementById('classes-tbody');
+    tbody.innerHTML = (data.classes || []).map(c => `
+        <tr>
+          <td style="font-weight:500">${escapeHtml(c.name)}</td>
+          <td>${escapeHtml(c.section || '—')}</td>
+          <td style="font-size:13px;color:var(--muted)">${escapeHtml(c.teacher_name || '—')}</td>
+          <td>${c.total_students}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="deleteClass(${c.id})">Delete</button></td>
+        </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted)">No classes yet</td></tr>';
+}
+async function addClass() {
+    const name      = document.getElementById('c-name').value.trim();
+    const section   = document.getElementById('c-section').value.trim();
+    const teacherId = document.getElementById('c-teacher').value;
+    if (!name || !teacherId) return showAlert('alert-box', 'Class name and teacher are required.');
+    const res  = await fetch(`${API_BASE}/classes.php`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, section, teacher_id: teacherId }),
+    });
+    const data = await res.json();
+    if (data.success) {
+        showAlert('alert-box', 'Class added.', 'success');
+        document.getElementById('c-name').value = '';
+        document.getElementById('c-section').value = '';
+        loadClasses();
+    } else {
+        showAlert('alert-box', data.error || 'Failed.');
+    }
+}
+async function deleteClass(id) {
+    if (!confirm('Delete this class and ALL its attendance records?')) return;
+    await fetch(`${API_BASE}/classes.php?id=${id}`, { method: 'DELETE' });
+    loadClasses();
+}
+
+// ── Students ──────────────────────────────────────────────────
+async function loadClassesIntoSelect() {
+    const res  = await fetch(`${API_BASE}/classes.php`);
+    const data = await res.json();
+    const sel  = document.getElementById('s-class');
+    sel.innerHTML = '<option value="">— Select class —</option>' +
+        (data.classes || []).map(c =>
+            `<option value="${c.id}">${escapeHtml(c.name)} ${c.section ? '· ' + c.section : ''}</option>`
+        ).join('');
+}
+async function loadStudents() {
+    const cid = document.getElementById('s-class').value;
+    if (!cid) return;
+    const res   = await fetch(`${API_BASE}/students.php?class_id=${cid}`);
+    const data  = await res.json();
+    const tbody = document.getElementById('students-tbody');
+    tbody.innerHTML = (data.students || []).map(s => `
+        <tr>
+          <td>${escapeHtml(s.roll_number)}</td>
+          <td>${escapeHtml(s.name)}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="deleteStudent(${s.id})">Delete</button></td>
+        </tr>`).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--muted)">No students in this class</td></tr>';
+}
+async function addStudent() {
+    const classId = document.getElementById('s-class').value;
+    const roll    = document.getElementById('s-roll').value.trim();
+    const name    = document.getElementById('s-name').value.trim();
+    if (!classId) return showAlert('alert-box', 'Select a class first.');
+    if (!roll || !name) return showAlert('alert-box', 'Roll number and name are required.');
+    const res  = await fetch(`${API_BASE}/students.php`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roll_number: roll, name, class_id: classId }),
+    });
+    const data = await res.json();
+    if (data.success) {
+        showAlert('alert-box', `Student ${roll} added. Remember to add their photo to student_photos/ and re-run encode_students.py`, 'success');
+        document.getElementById('s-roll').value = '';
+        document.getElementById('s-name').value = '';
+        loadStudents();
+    } else {
+        showAlert('alert-box', data.error || 'Failed to add student.');
+    }
+}
+async function deleteStudent(id) {
+    if (!confirm('Delete this student and their attendance records?')) return;
+    await fetch(`${API_BASE}/students.php?id=${id}`, { method: 'DELETE' });
+    loadStudents();
+}
+
+loadTeachers();
+</script>
+</body>
+</html>

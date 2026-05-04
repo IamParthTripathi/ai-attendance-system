@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload — AttendAI</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="navbar">
+  <span class="logo">&#127891; AttendAI</span>
+  <div class="nav-links">
+    <a href="dashboard.html">Dashboard</a>
+    <a href="upload.html" class="active">Upload</a>
+    <a href="attendance.html">Reports</a>
+    <a href="admin.html" id="admin-link" style="display:none">Admin</a>
+  </div>
+  <div class="nav-user">
+    <span id="nav-name"></span>
+    <span class="nav-badge" id="nav-role"></span>
+    <button class="btn btn-outline btn-sm" onclick="doLogout()">Logout</button>
+  </div>
+</nav>
+
+<div class="container page-content" style="max-width:760px">
+
+  <div class="section-header">
+    <h2>Upload classroom images</h2>
+  </div>
+
+  <div id="alert-box"></div>
+
+  <!-- Step 1: Select class -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-title">Step 1 — Select class &amp; date</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Class</label>
+        <select id="class-select" class="form-control">
+          <option value="">Loading classes…</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Date</label>
+        <input type="date" id="att-date" class="form-control">
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: Upload images -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-title">Step 2 — Upload classroom photos (1–3)</div>
+    <div class="dropzone" id="dropzone"
+         onclick="document.getElementById('file-input').click()"
+         ondragover="handleDragOver(event)"
+         ondragleave="handleDragLeave(event)"
+         ondrop="handleDrop(event)">
+      <div class="dropzone-icon">&#128247;</div>
+      <div style="font-weight:500;font-size:15px">Click to browse or drag images here</div>
+      <div class="dropzone-hint">JPG or PNG &nbsp;·&nbsp; Max 3 images &nbsp;·&nbsp; Max 10MB each</div>
+      <input type="file" id="file-input" multiple accept="image/jpeg,image/png"
+             onchange="handleFileSelect(this.files)">
+    </div>
+    <div class="preview-grid" id="preview-grid"></div>
+  </div>
+
+  <!-- Step 3: Process -->
+  <button class="btn btn-primary" id="process-btn"
+          style="width:100%;padding:13px" onclick="doProcess()">
+    Upload &amp; Mark Attendance
+  </button>
+
+  <!-- Results -->
+  <div id="results-section" style="display:none;margin-top:28px">
+    <div class="card">
+      <div class="card-title">&#10003; Attendance marked successfully</div>
+      <div class="stats-row" style="margin-bottom:20px">
+        <div class="stat-card"><div class="stat-value" id="r-total"></div><div class="stat-label">Total</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--success)" id="r-present"></div><div class="stat-label">Present</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--danger)"  id="r-absent"></div><div class="stat-label">Absent</div></div>
+        <div class="stat-card"><div class="stat-value" id="r-faces"></div><div class="stat-label">Faces detected</div></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Roll no.</th><th>Name</th><th>Status</th></tr></thead>
+          <tbody id="result-tbody"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:10px">
+        <a href="attendance.html" class="btn btn-outline btn-sm">View full report</a>
+        <button class="btn btn-outline btn-sm" onclick="resetForm()">Mark another class</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/config.js"></script>
+<script>
+const user = requireLogin();
+document.getElementById('nav-name').textContent = user.name;
+document.getElementById('nav-role').textContent = user.role;
+if (user.role === 'admin') document.getElementById('admin-link').style.display = '';
+
+// Set today's date
+document.getElementById('att-date').value = todayStr();
+
+// Pre-select class from URL param
+const urlParams  = new URLSearchParams(location.search);
+const preClassId = urlParams.get('class_id');
+
+let selectedFiles = [];
+
+// ── Load classes ────────────────────────────────────────────
+async function loadClasses() {
+    try {
+        const res  = await fetch(`${API_BASE}/classes.php`);
+        const data = await res.json();
+        const sel  = document.getElementById('class-select');
+
+        if (!data.classes || !data.classes.length) {
+            sel.innerHTML = '<option value="">No classes found — contact admin</option>';
+            return;
+        }
+
+        sel.innerHTML = '<option value="">— Select a class —</option>' +
+            data.classes.map(c =>
+                `<option value="${c.id}" ${String(c.id) === preClassId ? 'selected' : ''}>
+                    ${escapeHtml(c.name)} ${c.section ? '· ' + escapeHtml(c.section) : ''}
+                </option>`
+            ).join('');
+    } catch (err) {
+        document.getElementById('class-select').innerHTML =
+            '<option value="">Error loading classes</option>';
+        console.error(err);
+    }
+}
+
+// ── Drag & drop ─────────────────────────────────────────────
+function handleDragOver(e) {
+    e.preventDefault();
+    document.getElementById('dropzone').classList.add('dragover');
+}
+function handleDragLeave() {
+    document.getElementById('dropzone').classList.remove('dragover');
+}
+function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('dropzone').classList.remove('dragover');
+    handleFileSelect(e.dataTransfer.files);
+}
+function handleFileSelect(fileList) {
+    const valid = Array.from(fileList).filter(f =>
+        ['image/jpeg','image/jpg','image/png'].includes(f.type)
+    ).slice(0, 3);
+
+    selectedFiles = valid;
+    renderPreviews();
+}
+function renderPreviews() {
+    const grid = document.getElementById('preview-grid');
+    grid.innerHTML = selectedFiles.map((f, i) => {
+        const url = URL.createObjectURL(f);
+        return `<div class="preview-item">
+          <img src="${url}" alt="Preview ${i+1}">
+          <button class="remove-btn" onclick="removeFile(${i})">✕</button>
+          <div class="preview-label">${escapeHtml(f.name.slice(0,18))}</div>
+        </div>`;
+    }).join('');
+}
+function removeFile(idx) {
+    selectedFiles.splice(idx, 1);
+    renderPreviews();
+}
+
+// ── Main process flow ────────────────────────────────────────
+async function doProcess() {
+    const classId = document.getElementById('class-select').value;
+    const date    = document.getElementById('att-date').value;
+    const btn     = document.getElementById('process-btn');
+    document.getElementById('alert-box').innerHTML = '';
+
+    if (!classId)           return showAlert('alert-box', 'Please select a class first.');
+    if (!selectedFiles.length) return showAlert('alert-box', 'Please select at least one classroom image.');
+    if (!date)              return showAlert('alert-box', 'Please select a date.');
+
+    btn.disabled    = true;
+    btn.textContent = 'Uploading…';
+
+    try {
+        // ─ Upload images ─
+        const formData = new FormData();
+        formData.append('class_id', classId);
+        selectedFiles.forEach(f => formData.append('images[]', f));
+
+        const upRes = await fetch(`${API_BASE}/upload.php`, {
+            method: 'POST',
+            body:   formData,
+        });
+        const upData = await upRes.json();
+        if (!upData.success) throw new Error(upData.error || 'Upload failed');
+
+        btn.textContent = 'Running AI recognition…';
+
+        // ─ Process with AI ─
+        const procRes = await fetch(`${API_BASE}/process.php`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+                class_id:    classId,
+                image_paths: upData.paths,
+                date:        date,
+            }),
+        });
+        const proc = await procRes.json();
+        if (!proc.success) throw new Error(proc.error || proc.detail || 'Processing failed');
+
+        showResults(proc);
+        document.getElementById('results-section').style.display = 'block';
+        document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+
+    } catch (err) {
+        showAlert('alert-box', err.message || 'An unexpected error occurred.');
+        console.error(err);
+    } finally {
+        btn.disabled    = false;
+        btn.textContent = 'Upload & Mark Attendance';
+    }
+}
+
+function showResults(data) {
+    document.getElementById('r-total').textContent   = data.total;
+    document.getElementById('r-present').textContent = data.present_count;
+    document.getElementById('r-absent').textContent  = data.absent_count;
+    document.getElementById('r-faces').textContent   = data.face_count;
+
+    const all = [
+        ...data.present.map(s => ({ ...s, status: 'present' })),
+        ...data.absent.map(s  => ({ ...s, status: 'absent' })),
+    ].sort((a, b) => a.roll.localeCompare(b.roll));
+
+    document.getElementById('result-tbody').innerHTML = all.map(s => `
+        <tr>
+          <td>${escapeHtml(s.roll)}</td>
+          <td>${escapeHtml(s.name ?? '—')}</td>
+          <td><span class="badge badge-${s.status}">${s.status}</span></td>
+        </tr>`).join('');
+}
+
+function resetForm() {
+    selectedFiles = [];
+    renderPreviews();
+    document.getElementById('results-section').style.display = 'none';
+    document.getElementById('alert-box').innerHTML = '';
+    document.getElementById('att-date').value = todayStr();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+loadClasses();
+</script>
+</body>
+</html>

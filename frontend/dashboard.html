@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — AttendAI</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="navbar">
+  <a class="logo" href="dashboard.html" style="text-decoration:none">
+    <div class="logo-icon">🎓</div>
+    AttendAI
+  </a>
+  <div class="nav-links">
+    <a href="dashboard.html"    data-page="dashboard">Dashboard</a>
+    <a href="manual.html"       data-page="manual">Manual</a>
+    <a href="upload.html"       data-page="upload">Upload</a>
+    <a href="attendance.html"   data-page="reports">Reports</a>
+    <a href="admin.html"        data-page="admin" id="admin-link">Admin</a>
+  </div>
+  <div class="nav-user">
+    <div class="nav-avatar" id="nav-avatar">A</div>
+    <div class="nav-info">
+      <div class="nav-name"  id="nav-name"></div>
+      <span class="nav-badge" id="nav-role"></span>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="doLogout()">Logout</button>
+  </div>
+</nav>
+
+<div class="container page-content page-enter">
+
+  <div class="section-header">
+    <div>
+      <h2>Dashboard</h2>
+      <p id="today-label" style="color:var(--text-muted);font-size:14px;margin-top:3px"></p>
+    </div>
+    <div style="display:flex;gap:10px">
+      <a href="manual.html"   class="btn btn-outline">✍ Manual</a>
+      <a href="upload.html"   class="btn btn-primary">📷 Upload Images</a>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row" id="stats-row">
+    <div class="stat-card">
+      <span class="stat-icon">👥</span>
+      <div class="stat-value" id="stat-total">—</div>
+      <div class="stat-label">Total Students</div>
+    </div>
+    <div class="stat-card">
+      <span class="stat-icon">✅</span>
+      <div class="stat-value success" id="stat-present">—</div>
+      <div class="stat-label">Present Today</div>
+    </div>
+    <div class="stat-card">
+      <span class="stat-icon">❌</span>
+      <div class="stat-value danger" id="stat-absent">—</div>
+      <div class="stat-label">Absent Today</div>
+    </div>
+    <div class="stat-card">
+      <span class="stat-icon">📊</span>
+      <div class="stat-value" id="stat-pct">—</div>
+      <div class="stat-label">Attendance %</div>
+    </div>
+  </div>
+
+  <div id="alert-box"></div>
+
+  <!-- Quick actions -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+    <!-- Manual Attendance CTA Card -->
+    <div class="card" style="background:linear-gradient(135deg,var(--primary),var(--primary-dark));border:none;color:white">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px">
+        <div>
+          <div style="font-size:28px;margin-bottom:8px">✍️</div>
+          <div style="font-size:18px;font-weight:800;letter-spacing:-0.3px">Manual Attendance</div>
+          <div style="font-size:13px;opacity:0.85;margin-top:5px">Mark attendance student by student with a single tap</div>
+        </div>
+      </div>
+      <a href="manual.html" class="btn" style="background:rgba(255,255,255,0.2);color:white;border:1.5px solid rgba(255,255,255,0.3);width:100%;margin-top:4px">
+        Open Manual Marking →
+      </a>
+    </div>
+    <!-- AI Upload CTA Card -->
+    <div class="card" style="background:linear-gradient(135deg,#10b981,#059669);border:none;color:white">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px">
+        <div>
+          <div style="font-size:28px;margin-bottom:8px">🤖</div>
+          <div style="font-size:18px;font-weight:800;letter-spacing:-0.3px">AI Face Recognition</div>
+          <div style="font-size:13px;opacity:0.85;margin-top:5px">Upload classroom photos — AI marks attendance automatically</div>
+        </div>
+      </div>
+      <a href="upload.html" class="btn" style="background:rgba(255,255,255,0.2);color:white;border:1.5px solid rgba(255,255,255,0.3);width:100%;margin-top:4px">
+        Upload Photos →
+      </a>
+    </div>
+  </div>
+
+  <!-- Classes table -->
+  <div class="card">
+    <div class="card-title">
+      <div class="card-icon">🏫</div>
+      Your Classes — Today
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Class</th>
+            <th>Section</th>
+            <th>Students</th>
+            <th>Present</th>
+            <th>Absent</th>
+            <th>% Rate</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="classes-tbody">
+          <tr><td colspan="7"><div class="spinner"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/config.js"></script>
+<script>
+const user = requireLogin();
+initNav('dashboard');
+
+document.getElementById('today-label').textContent = new Date().toLocaleDateString('en-IN',
+  { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+async function loadDashboard() {
+  try {
+    const res  = await fetch(`${API_BASE}/attendance.php?dashboard=1&date=${todayStr()}`);
+    const data = await res.json();
+    if (data.error) { showAlert('alert-box', data.error); return; }
+
+    const total   = data.total_students ?? 0;
+    const present = data.total_present  ?? 0;
+    const absent  = data.total_absent   ?? 0;
+    const pct     = total ? Math.round((present / total) * 100) : 0;
+
+    document.getElementById('stat-total').textContent   = total;
+    document.getElementById('stat-present').textContent = present;
+    document.getElementById('stat-absent').textContent  = absent;
+    document.getElementById('stat-pct').textContent     = pct + '%';
+
+    const tbody   = document.getElementById('classes-tbody');
+    const classes = data.classes ?? [];
+
+    if (!classes.length) {
+      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state">
+        <span class="empty-icon">🏫</span>
+        <h3>No classes found</h3>
+        <p>${user.role==='admin'?'<a href="admin.html">Add classes in Admin</a>':'Contact your admin.'}</p>
+      </div></td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = classes.map(c => {
+      const rate = c.total_students ? Math.round((c.present/c.total_students)*100) : 0;
+      const color = rate >= 75 ? 'var(--success)' : rate >= 50 ? 'var(--warning)' : 'var(--danger)';
+      return `<tr>
+        <td style="font-weight:700">${escapeHtml(c.name)}</td>
+        <td style="color:var(--text-muted)">${escapeHtml(c.section||'—')}</td>
+        <td>${c.total_students}</td>
+        <td><span class="badge badge-present">${c.present}</span></td>
+        <td><span class="badge badge-absent">${(c.absent??c.total_students-c.present)}</span></td>
+        <td><span style="font-weight:700;color:${color}">${rate}%</span></td>
+        <td>
+          <div style="display:flex;gap:6px">
+            <a href="manual.html?class_id=${c.id}" class="btn btn-outline btn-sm">✍ Manual</a>
+            <a href="upload.html?class_id=${c.id}" class="btn btn-outline btn-sm">📷 Upload</a>
+            <a href="attendance.html?class_id=${c.id}" class="btn btn-outline btn-sm">📊 Report</a>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+
+  } catch (e) {
+    showAlert('alert-box', 'Failed to load dashboard. Is WAMP/XAMPP running?');
+  }
+}
+
+loadDashboard();
+</script>
+</body>
+</html>

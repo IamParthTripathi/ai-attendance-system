@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reports — AttendAI</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="navbar">
+  <span class="logo">&#127891; AttendAI</span>
+  <div class="nav-links">
+    <a href="dashboard.html">Dashboard</a>
+    <a href="upload.html">Upload</a>
+    <a href="attendance.html" class="active">Reports</a>
+    <a href="admin.html" id="admin-link" style="display:none">Admin</a>
+  </div>
+  <div class="nav-user">
+    <span id="nav-name"></span>
+    <span class="nav-badge" id="nav-role"></span>
+    <button class="btn btn-outline btn-sm" onclick="doLogout()">Logout</button>
+  </div>
+</nav>
+
+<div class="container page-content">
+
+  <div class="section-header" style="margin-bottom:24px">
+    <h2>Attendance reports</h2>
+  </div>
+
+  <!-- Filters row -->
+  <div class="card" style="margin-bottom:20px;padding:16px 24px">
+    <div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0;flex:1;min-width:160px">
+        <label class="form-label">Class</label>
+        <select id="class-filter" class="form-control" onchange="onFilterChange()">
+          <option value="">All classes</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;min-width:160px">
+        <label class="form-label">Or pick directly</label>
+        <input type="date" id="date-input" class="form-control" onchange="onDateInput(this.value)">
+      </div>
+    </div>
+  </div>
+
+  <div class="two-col">
+
+    <!-- Calendar -->
+    <div class="card" style="align-self:start">
+      <div class="cal-header">
+        <button class="btn btn-outline btn-sm" onclick="changeMonth(-1)">&#8249;</button>
+        <span id="month-label" style="font-weight:600;font-size:15px"></span>
+        <button class="btn btn-outline btn-sm" onclick="changeMonth(1)">&#8250;</button>
+      </div>
+      <div class="cal-weekdays">
+        <div class="cal-weekday">Su</div>
+        <div class="cal-weekday">Mo</div>
+        <div class="cal-weekday">Tu</div>
+        <div class="cal-weekday">We</div>
+        <div class="cal-weekday">Th</div>
+        <div class="cal-weekday">Fr</div>
+        <div class="cal-weekday">Sa</div>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+
+    <!-- Report panel -->
+    <div>
+      <div class="stats-row" style="margin-bottom:20px">
+        <div class="stat-card"><div class="stat-value" id="r-total">—</div><div class="stat-label">Total</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--success)" id="r-present">—</div><div class="stat-label">Present</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--danger)"  id="r-absent">—</div><div class="stat-label">Absent</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="justify-content:space-between">
+          <span>Records — <span id="selected-date-label" style="color:var(--primary)">select a date</span></span>
+          <button class="btn btn-outline btn-sm" onclick="exportCSV()">Export CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Roll no.</th><th>Name</th><th>Status</th><th>Marked at</th></tr></thead>
+            <tbody id="report-tbody">
+              <tr><td colspan="4" style="text-align:center;padding:28px;color:var(--muted)">
+                Click a date on the calendar to view records
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script>
+const user = requireLogin();
+document.getElementById('nav-name').textContent = user.name;
+document.getElementById('nav-role').textContent = user.role;
+if (user.role === 'admin') document.getElementById('admin-link').style.display = '';
+
+const urlP    = new URLSearchParams(location.search);
+let selDate   = urlP.get('date') || todayStr();
+let curMonth  = new Date(selDate + 'T00:00:00');
+let lastRecords = [];
+
+document.getElementById('date-input').value = selDate;
+
+// ── Load classes ────────────────────────────────────────────
+async function loadClasses() {
+    const res  = await fetch(`${API_BASE}/classes.php`);
+    const data = await res.json();
+    const sel  = document.getElementById('class-filter');
+    (data.classes || []).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = `${c.name} ${c.section ? '· ' + c.section : ''}`;
+        if (String(c.id) === urlP.get('class_id')) opt.selected = true;
+        sel.appendChild(opt);
+    });
+}
+
+function onFilterChange() { selectDate(selDate); }
+function onDateInput(val) { if (val) { selDate = val; renderCalendar(); selectDate(val); } }
+
+// ── Calendar ─────────────────────────────────────────────────
+function renderCalendar() {
+    const y = curMonth.getFullYear();
+    const m = curMonth.getMonth();
+    const monthNames = ['January','February','March','April','May','June',
+                        'July','August','September','October','November','December'];
+    document.getElementById('month-label').textContent = `${monthNames[m]} ${y}`;
+
+    const firstDay    = new Date(y, m, 1).getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const today       = todayStr();
+    let html = '';
+
+    for (let i = 0; i < firstDay; i++) html += '<div class="cal-day empty"></div>';
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const ds  = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        let cls   = 'cal-day';
+        if (ds === selDate) cls += ' selected';
+        else if (ds === today) cls += ' today';
+        html += `<div class="${cls}" onclick="selectDate('${ds}')">${d}</div>`;
+    }
+
+    document.getElementById('cal-grid').innerHTML = html;
+}
+
+function changeMonth(delta) {
+    curMonth = new Date(curMonth.getFullYear(), curMonth.getMonth() + delta, 1);
+    renderCalendar();
+}
+
+// ── Fetch & display records ──────────────────────────────────
+async function selectDate(ds) {
+    selDate = ds;
+    document.getElementById('date-input').value = ds;
+    document.getElementById('selected-date-label').textContent = formatDate(ds);
+    renderCalendar();
+
+    const classId = document.getElementById('class-filter').value;
+    const url     = `${API_BASE}/attendance.php?date=${ds}${classId ? '&class_id=' + classId : '&dashboard=1'}`;
+
+    const tbody = document.getElementById('report-tbody');
+    tbody.innerHTML = '<tr class="loading-row"><td colspan="4"><div class="spinner"></div></td></tr>';
+
+    try {
+        const res  = await fetch(url);
+        const data = await res.json();
+
+        if (classId) {
+            // Single class mode
+            document.getElementById('r-total').textContent   = data.total   ?? 0;
+            document.getElementById('r-present').textContent = data.present_count ?? 0;
+            document.getElementById('r-absent').textContent  = data.absent_count  ?? 0;
+            lastRecords = data.records ?? [];
+
+            if (!lastRecords.length) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:28px;color:var(--muted)">No students in this class</td></tr>';
+                return;
+            }
+            tbody.innerHTML = lastRecords.map(r => `
+                <tr>
+                  <td>${escapeHtml(r.roll_number)}</td>
+                  <td>${escapeHtml(r.name)}</td>
+                  <td><span class="badge badge-${r.status === 'present' ? 'present' : r.status === 'absent' ? 'absent' : 'not-marked'}">${r.status}</span></td>
+                  <td style="color:var(--muted);font-size:13px">${r.marked_at ? r.marked_at.slice(0,16) : '—'}</td>
+                </tr>`).join('');
+        } else {
+            // All-classes summary
+            const classes = data.classes ?? [];
+            document.getElementById('r-total').textContent   = data.total_students ?? 0;
+            document.getElementById('r-present').textContent = data.total_present  ?? 0;
+            document.getElementById('r-absent').textContent  = data.total_absent   ?? 0;
+            lastRecords = classes;
+
+            if (!classes.length) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:28px;color:var(--muted)">No classes found</td></tr>';
+                return;
+            }
+            tbody.innerHTML = classes.map(c => `
+                <tr>
+                  <td>${escapeHtml(c.name)}</td>
+                  <td>${escapeHtml(c.section || '—')}</td>
+                  <td><span class="badge badge-present">${c.present} present</span></td>
+                  <td><a href="attendance.html?class_id=${c.id}&date=${ds}" class="btn btn-outline btn-sm">Details</a></td>
+                </tr>`).join('');
+        }
+    } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--danger)">Error loading records</td></tr>';
+        console.error(err);
+    }
+}
+
+// ── CSV export ───────────────────────────────────────────────
+function exportCSV() {
+    if (!lastRecords.length) return alert('No records to export.');
+    const classId = document.getElementById('class-filter').value;
+
+    let csv = classId
+        ? 'Roll Number,Name,Status,Marked At\n' +
+          lastRecords.map(r => `"${r.roll_number}","${r.name}","${r.status}","${r.marked_at||''}"`).join('\n')
+        : 'Class,Section,Present\n' +
+          lastRecords.map(c => `"${c.name}","${c.section||''}","${c.present}"`).join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = `attendance-${selDate}.csv`;
+    a.click();
+}
+
+loadClasses();
+renderCalendar();
+selectDate(selDate);
+</script>
+</body>
+</html>
