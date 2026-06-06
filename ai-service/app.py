@@ -24,6 +24,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from face_engine import process_images
+from typing import List
 
 # ── App setup ────────────────────────────────────────────────
 app = FastAPI(
@@ -53,7 +54,7 @@ def health():
 # ── Process endpoint ─────────────────────────────────────────
 @app.post("/process")
 async def process_attendance(
-    images: list[UploadFile] = File(..., description="1–3 classroom photos"),
+    images: List[UploadFile] = File(..., description="1–3 classroom photos"),
     class_id: str = Form(..., description="Class ID from the database"),
 ):
     """
