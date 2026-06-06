@@ -2,7 +2,7 @@
 // frontend/js/config.js  — Central config & shared utilities
 // ============================================================
 
-const API_BASE   = '/attendance-system/backend/api';
+const API_BASE   = 'https://parthtripathi.xo.je/backend/api';
 const STORAGE_KEY = 'attendai_user';
 
 // ── Auth helpers ─────────────────────────────────────────────
