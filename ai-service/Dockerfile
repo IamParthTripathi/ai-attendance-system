@@ -11,7 +11,7 @@ COPY app.py .
 COPY face_engine.py .
 COPY encode_students.py .
 COPY student_photos/ ./student_photos/
-COPY encodings/ ./encodings/
+#COPY encodings/ ./encodings/
 
 # Install only the remaining deps that aren't in the base image
 RUN pip install fastapi==0.111.0 uvicorn==0.29.0 python-multipart==0.0.9
